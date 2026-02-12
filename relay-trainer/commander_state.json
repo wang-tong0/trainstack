@@ -1,0 +1,20 @@
+{
+  "active_lease": {
+    "run_id": "r1",
+    "lease_token": "885ce2a078f8a335a8bdf15453d52d05",
+    "worker_id": "w1",
+    "expires_at": "2026-02-09T09:25:28.544087Z"
+  },
+  "run_status": {
+    "r1": {
+      "run_id": "r1",
+      "last_reported_step": 3,
+      "last_ckpt": "step_00000003",
+      "last_hf_repo": null,
+      "last_hf_revision": null,
+      "updated_at": "2026-02-09T08:25:28.547483Z",
+      "status": "RUNNING",
+      "msg": null
+    }
+  }
+}

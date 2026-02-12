@@ -18,8 +18,11 @@ from sglang.srt.utils import MultiprocessingSerializer
 
 try:
     from sglang.srt.weight_sync.tensor_bucket import FlattenedTensorBucket  # type: ignore[import]
-except ImportError:
-    from sglang.srt.model_executor.model_runner import FlattenedTensorBucket  # type: ignore[import]
+except ImportError:  # pragma: no cover
+    try:
+        from sglang.srt.model_executor.model_runner import FlattenedTensorBucket  # type: ignore[import]
+    except ImportError:  # pragma: no cover
+        FlattenedTensorBucket = None  # type: ignore[assignment]
 
 __all__ = [
     "quant_weight_ue8m0",

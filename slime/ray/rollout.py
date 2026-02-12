@@ -11,7 +11,18 @@ import numpy as np
 import ray
 import torch
 from ray.util.scheduling_strategies import PlacementGroupSchedulingStrategy
-from sglang.srt.constants import GPU_MEMORY_TYPE_CUDA_GRAPH, GPU_MEMORY_TYPE_KV_CACHE, GPU_MEMORY_TYPE_WEIGHTS
+try:
+    # Newer sglang versions define GPU_MEMORY_TYPE_CUDA_GRAPH.
+    from sglang.srt.constants import (
+        GPU_MEMORY_TYPE_CUDA_GRAPH,
+        GPU_MEMORY_TYPE_KV_CACHE,
+        GPU_MEMORY_TYPE_WEIGHTS,
+    )
+except ImportError:
+    # Backward compat: older sglang (e.g. 0.4.x) doesn't define CUDA-graph tag.
+    from sglang.srt.constants import GPU_MEMORY_TYPE_KV_CACHE, GPU_MEMORY_TYPE_WEIGHTS
+
+    GPU_MEMORY_TYPE_CUDA_GRAPH = "cuda_graph"
 
 from slime.backends.sglang_utils.sglang_engine import SGLangEngine
 from slime.rollout.base_types import call_rollout_fn

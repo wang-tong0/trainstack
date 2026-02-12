@@ -345,7 +345,8 @@ class FSDPTrainRayActor(TrainRayActor):
                     log_probs_result, entropy_result = get_logprob_and_entropy(
                         logits=logits,
                         target_tokens=batch["tokens"],
-                        allow_compile=not self.args.true_on_policy_mode,
+                        # FSDP path can hang in torch.compile/inductor on some environments.
+                        allow_compile=False,
                         temperature=self.args.rollout_temperature,
                     )
                     batch[f"{store_prefix}log_probs"] = log_probs_result
@@ -463,6 +464,8 @@ class FSDPTrainRayActor(TrainRayActor):
 
     def _log_rollout_data(self, rollout_id: int, rollout_data, packed_batches):
         log_dict = {}
+        if not packed_batches:
+            return
         if "raw_reward" in rollout_data and dist.get_rank() == 0:
             raw_reward_list = rollout_data["raw_reward"]
             if raw_reward_list:
@@ -478,6 +481,16 @@ class FSDPTrainRayActor(TrainRayActor):
                     if isinstance(unpacked_batch[metric_key], torch.Tensor):
                         loss_masks_tensor = unpacked_batch["loss_masks"].to(device=torch.cuda.current_device())
                         metric_tensor = unpacked_batch[metric_key].to(device=torch.cuda.current_device())
+                        # Be tolerant to occasional shape drift from rollout unpacking in edge cases.
+                        if metric_tensor.ndim != 1:
+                            metric_tensor = metric_tensor.reshape(-1)
+                        if loss_masks_tensor.ndim != 1:
+                            loss_masks_tensor = loss_masks_tensor.reshape(-1)
+                        common_len = min(metric_tensor.numel(), loss_masks_tensor.numel())
+                        if common_len == 0:
+                            continue
+                        metric_tensor = metric_tensor[:common_len]
+                        loss_masks_tensor = loss_masks_tensor[:common_len]
                         val += (metric_tensor * loss_masks_tensor).sum() / loss_masks_tensor.sum().clamp_min(1)
                     else:
                         val += unpacked_batch[metric_key]
@@ -557,7 +570,8 @@ class FSDPTrainRayActor(TrainRayActor):
         log_probs, entropy_result = get_logprob_and_entropy(
             logits=logits,
             target_tokens=packed_batch["tokens"],
-            allow_compile=not self.args.true_on_policy_mode,
+            # Keep training path aligned with rollout log-prob computation.
+            allow_compile=False,
             temperature=self.args.rollout_temperature,
         )
         packed_batch["cur_log_probs"] = log_probs

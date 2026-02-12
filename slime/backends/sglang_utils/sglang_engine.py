@@ -76,10 +76,20 @@ def _wait_server_healthy(base_url, api_key, is_process_alive):
         "Authorization": f"Bearer {api_key}",
     }
 
+    # SGLang endpoints have changed across versions. In particular, `/flush_cache`
+    # may be GET or POST, and may return non-200 codes transiently. This function
+    # must never hang indefinitely, otherwise Ray placement group setup will deadlock.
+    req_timeout_s = 2
+    health_deadline_s = 180
+    flush_deadline_s = 30
+
     with requests.Session() as session:
+        start_t = time.time()
+
+        # 1) Wait for server /health to return 200.
         while True:
             try:
-                response = session.get(f"{base_url}/health_generate", headers=headers)
+                response = session.get(f"{base_url}/health", headers=headers, timeout=req_timeout_s)
                 if response.status_code == 200:
                     break
             except requests.RequestException:
@@ -88,15 +98,27 @@ def _wait_server_healthy(base_url, api_key, is_process_alive):
             if not is_process_alive():
                 raise Exception("Server process terminated unexpectedly.")
 
+            if time.time() - start_t > health_deadline_s:
+                raise TimeoutError(f"Timeout waiting for {base_url}/health")
+
             time.sleep(2)
 
-        # use flush_cache to make sure the working queue is empty, so that we can do offload
-        while True:
+        # 2) Best-effort flush_cache so colocate/offload paths don't race with pending requests.
+        # Do not block init forever if the endpoint/method differs.
+        flush_start_t = time.time()
+        while time.time() - flush_start_t < flush_deadline_s:
             try:
-                response = session.get(f"{base_url}/flush_cache", headers=headers)
-                if response.status_code == 200:
-                    break
+                # Try GET then POST to be compatible with multiple SGLang versions.
+                r_get = session.get(f"{base_url}/flush_cache", headers=headers, timeout=req_timeout_s)
+                if r_get.status_code == 200:
+                    return
+            except requests.RequestException:
+                pass
 
+            try:
+                r_post = session.post(f"{base_url}/flush_cache", headers=headers, json={}, timeout=req_timeout_s)
+                if r_post.status_code == 200:
+                    return
             except requests.RequestException:
                 pass
 
@@ -104,6 +126,9 @@ def _wait_server_healthy(base_url, api_key, is_process_alive):
                 raise Exception("Server process terminated unexpectedly.")
 
             time.sleep(2)
+
+        # Proceed even if flush_cache didn't return 200.
+        return
 
 
 class SGLangEngine(RayActor):
@@ -226,7 +251,7 @@ class SGLangEngine(RayActor):
         return response.json()
 
     def health_generate(self, timeout: float = 5.0) -> bool:
-        """Run /health_generate on the underlying SGLang HTTP server.
+        """Run lightweight /health check on the underlying SGLang HTTP server.
 
         Args:
             timeout: Timeout for the health request in seconds.
@@ -240,10 +265,7 @@ class SGLangEngine(RayActor):
         if self.node_rank != 0:
             return True
 
-        response = requests.get(
-            f"http://{self.server_host}:{self.server_port}/health_generate",
-            timeout=timeout,
-        )
+        response = requests.get(f"http://{self.server_host}:{self.server_port}/health", timeout=timeout)
         response.raise_for_status()
         return True
 
@@ -276,10 +298,16 @@ class SGLangEngine(RayActor):
         """Flush the cache of the server."""
         if self.node_rank != 0:
             return
-        # flush cache will not return status_code 200 when there are pending requests
+        # flush_cache will not return status_code 200 when there are pending requests.
+        # Also, some versions expose it as POST rather than GET.
         for _ in range(60):
             try:
-                response = requests.get(f"http://{self.server_host}:{self.server_port}/flush_cache")
+                response = requests.get(f"http://{self.server_host}:{self.server_port}/flush_cache", timeout=2)
+                if response.status_code == 200:
+                    break
+                response = requests.post(
+                    f"http://{self.server_host}:{self.server_port}/flush_cache", json={}, timeout=2
+                )
                 if response.status_code == 200:
                     break
             except NewConnectionError as e:

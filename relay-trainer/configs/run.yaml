@@ -1,0 +1,7 @@
+commander_url: "http://127.0.0.1:8080"
+run_id: "demo-sft-run"
+worker_id: "local-worker"
+mode: "sft"
+hf_repo: ""
+hf_dry_run: true
+relay_shared_secret: ""

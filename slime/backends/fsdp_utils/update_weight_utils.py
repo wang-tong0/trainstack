@@ -21,9 +21,15 @@ from slime.utils.distributed_utils import init_process_group
 
 
 try:
+    # Newer SGLang versions (and Slime-patched builds) expose this here.
     from sglang.srt.weight_sync.tensor_bucket import FlattenedTensorBucket  # type: ignore[import]
-except ImportError:
-    from sglang.srt.model_executor.model_runner import FlattenedTensorBucket  # type: ignore[import]
+except ImportError:  # pragma: no cover
+    try:
+        # Older SGLang variants had it elsewhere (or not at all).
+        from sglang.srt.model_executor.model_runner import FlattenedTensorBucket  # type: ignore[import]
+    except ImportError:  # pragma: no cover
+        # Allow importing this module even when tensor-bucket weight sync isn't available.
+        FlattenedTensorBucket = None  # type: ignore[assignment]
 
 
 logger = logging.getLogger(__name__)
@@ -118,6 +124,12 @@ class UpdateWeightFromTensor(UpdateWeight):
 
     def update_bucket_weights(self, named_tensors, weight_version=None) -> None:
         monkey_patch_torch_reductions()
+        if FlattenedTensorBucket is None:
+            raise RuntimeError(
+                "SGLang FlattenedTensorBucket is unavailable. "
+                "Either install a Slime-compatible SGLang build (with weight_sync.tensor_bucket), "
+                "or run without --colocate to use distributed weight updates."
+            )
         # Use flattened bucket approach similar to Megatron
         logger.info("Using flattened tensor bucket")
         # Group tensors by dtype (same as Megatron)
