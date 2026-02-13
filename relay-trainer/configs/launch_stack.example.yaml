@@ -1,0 +1,57 @@
+commander:
+  host: "0.0.0.0"
+  port: 8080
+  public_url: "http://<your-commander-public-ip>:8080"
+  state_path: "./commander_state.json"
+  log_path: "./.relay-launch/commander.log"
+  pid_path: "./.relay-launch/commander.pid"
+  lease_seconds: 3600
+  shared_secret: ""
+  python_bin: "/root/venv/bin/python"
+  wait_seconds: 30
+  restart_if_running: true
+
+lium:
+  # Optional. If omitted, lium will auto select executor.
+  # executor: "4"
+  template_id: "relay-trainer"
+  pod_name: "relay-auto-demo"
+  volume: "new:name=relay-auto-demo"
+  ttl: "2h"
+  yes: true
+  ready_timeout_seconds: 300
+  poll_interval_seconds: 5
+
+run:
+  run_id: "demo-sft-run"
+  mode: "sft"  # sft | rl
+  worker_id: "relay-auto-worker-01"
+  hf_repo: ""
+  hf_dry_run: true
+  save_rollout_trajectories: false
+  rollout_trajectory_subdir: "rollout"
+  rollout_trajectory_pattern: "rollout_{rollout_id:08d}.pt"
+
+worker:
+  # If set, this mapping is uploaded as worker run config directly.
+  # If omitted, relayctl will auto-generate run config from `commander` + `run`.
+  # relay_run_config:
+  #   commander_url: "http://<your-commander-public-ip>:8080"
+  #   run_id: "demo-sft-run"
+  #   worker_id: "relay-auto-worker-01"
+  #   mode: "sft"
+  #   hf_repo: ""
+  #   hf_dry_run: true
+  #   relay_shared_secret: ""
+  #   save_rollout_trajectories: false
+  #   rollout_trajectory_subdir: "rollout"
+  #   rollout_trajectory_pattern: "rollout_{rollout_id:08d}.pt"
+  local_config_path: "./.relay-launch/worker.run.yaml"
+  remote_config_path: "/workspace/slime/relay-trainer/configs/run.launch.yaml"
+  remote_workdir: "/workspace/slime/relay-trainer"
+  remote_python_bin: "/root/venv/bin/python"
+  remote_log_path: "/tmp/relay-worker.log"
+  remote_pid_path: "/tmp/relay-worker.pid"
+  # Optional override:
+  # command: "/root/venv/bin/python -m relay.worker.relay_entry --config /workspace/slime/relay-trainer/configs/run.launch.yaml"
+  env: {}

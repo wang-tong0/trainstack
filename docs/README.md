@@ -1,31 +1,22 @@
-# slime Documentation
+# trainstack docs
 
-We recommend new contributors start from writing documentation, which helps you quickly understand slime codebase.
-Most documentation files are located under the `docs/` folder.
+This folder is the documentation entry point for trainstack.
 
-## Docs Workflow
+## Start here
 
-### Install Dependency
+- English quick start: `docs/en/getting_started.md`
+- 中文开发总览: `docs/zh/development_guide.md`
 
-```bash
-apt-get update && apt-get install -y pandoc parallel retry
-pip install -r requirements.txt
-```
+## English
 
-### Update Documentation
+- Getting started: `docs/en/getting_started.md`
+- Training quick start: `docs/en/training_quickstart.md`
+- Project structure: `docs/en/project_structure.md`
 
-You can update the documentation in the en and zh folders by adding Markdown or Jupyter Notebook files to the appropriate subdirectories. If you create new files, make sure to update index.rst (or any other relevant .rst files) accordingly.
+## 中文
 
-## Build and Render
-
-```bash
-# build english version
-bash ./build.sh en
-bash ./serve.sh en
-
-# build chinese version
-bash ./build.sh zh
-bash ./serve.sh zh
-```
-
-You can then visit `http://localhost:8000` to view the documentation.
+- 开发总览: `docs/zh/development_guide.md`
+- 项目结构: `docs/zh/project_structure.md`
+- Docker 构建与发布: `docs/zh/docker_build_and_release.md`
+- Commander / Worker 使用: `docs/zh/commander_worker_usage.md`
+- HTTP 环境解耦: `docs/zh/http_env_decoupling.md`

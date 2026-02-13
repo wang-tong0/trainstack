@@ -1,0 +1,50 @@
+commander:
+  host: "0.0.0.0"
+  port: 8080
+  public_url: "http://<your-commander-public-ip>:8080"
+  state_path: "./commander_state.json"
+  log_path: "./.relay-launch/commander.log"
+  pid_path: "./.relay-launch/commander.pid"
+  lease_seconds: 3600
+  shared_secret: ""
+  python_bin: "/root/venv/bin/python"
+  wait_seconds: 30
+  restart_if_running: true
+
+lium:
+  template_id: "relay-trainer"
+  pod_name: "relay-liveweb-sft"
+  volume: "new:name=relay-liveweb-sft"
+  ttl: "2h"
+  yes: true
+  ready_timeout_seconds: 300
+  poll_interval_seconds: 5
+
+run:
+  run_id: "liveweb-sft-demo"
+  mode: "sft"
+  worker_id: "relay-liveweb-sft-01"
+  hf_repo: ""
+  hf_dry_run: true
+  save_rollout_trajectories: false
+  rollout_trajectory_subdir: "rollout"
+  rollout_trajectory_pattern: "rollout_{rollout_id:08d}.pt"
+
+worker:
+  local_config_path: "./.relay-launch/worker.liveweb.sft.run.yaml"
+  remote_config_path: "/workspace/slime/relay-trainer/configs/run.liveweb.sft.yaml"
+  remote_workdir: "/workspace/slime/relay-trainer"
+  remote_python_bin: "/root/venv/bin/python"
+  remote_log_path: "/tmp/relay-worker-liveweb-sft.log"
+  remote_pid_path: "/tmp/relay-worker-liveweb-sft.pid"
+  env:
+    LIVEWEB_ARENA_ROOT: "/home/ubuntu/liveweb-arena"
+    TRAINSTACK_HTTP_ENV_URL: "http://127.0.0.1:18082"
+    TRAINSTACK_LLM_URL: "http://127.0.0.1:18081/generate"
+    PYTHONPATH: "/workspace/slime:/workspace/trainstack:/workspace/liveweb-arena:${PYTHONPATH:-}"
+    # Replace with your real slime SFT command.
+    # Important: include custom-generate-function-path for HTTP env adapter.
+    SLIME_SFT_CMD: >
+      cd /workspace/slime &&
+      echo "replace SLIME_SFT_CMD with your liveweb SFT command" &&
+      /root/venv/bin/python -m trainstack_plugins.http_env.mock_llm_server >/tmp/liveweb_mock_llm.log 2>&1 &
